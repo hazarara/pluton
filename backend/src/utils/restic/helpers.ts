@@ -1,7 +1,17 @@
 import path from 'path';
 
+// The bootstrapped default storage's DB display name ("Local Storage") does not
+// match its actual rclone remote name (created as "local" in initSetup.ts).
+// Some callers already normalize this ad-hoc (see PlanService.getStorageDetails
+// and PlanService.resolveReplicationStorages); centralizing it here ensures every
+// caller of generateResticRepoPath resolves to the same rclone remote regardless
+// of whether it was handed the storage's id or its display name.
+function normalizeStorageRcloneName(storageName: string): string {
+	return storageName === 'Local' || storageName === 'Local Storage' ? 'local' : storageName;
+}
+
 export function generateResticRepoPath(storageName: string, storagePath: string) {
-	return `rclone:${storageName}:${storagePath || ''}`;
+	return `rclone:${normalizeStorageRcloneName(storageName)}:${storagePath || ''}`;
 }
 export function toResticPath(srcPath: string) {
 	// Normalize the path to handle mixed separators

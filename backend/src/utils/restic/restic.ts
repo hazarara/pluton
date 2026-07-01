@@ -88,6 +88,8 @@ export function runResticCommand(
 			finalArgs.push('--insecure-no-password');
 		}
 
+		const spawnedAt = Date.now();
+		console.log(`[TRACE] spawn restic ${args[0]} at ${spawnedAt}`);
 		const resticProcess = spawn(resticBinary, finalArgs, { env: envVars });
 
 		if (onProcess) {
@@ -162,7 +164,9 @@ export function runResticCommand(
 
 		// Handle Process Exit
 		resticProcess.on('close', (code: number) => {
-			// console.log('Restic Process exited with code:', code);
+			console.log(
+				`[TRACE] close restic ${args[0]} code=${code} at ${Date.now()} elapsedMs=${Date.now() - spawnedAt}`
+			);
 			if (!wasCancelled) {
 				onComplete?.(code);
 				if (code === 0) {

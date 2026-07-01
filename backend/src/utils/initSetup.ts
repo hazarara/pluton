@@ -71,7 +71,7 @@ async function createLocalStorage(db: BetterSQLite3Database) {
 		try {
 			console.log('Create Rclone Local Storage!');
 			const storageManager = new BaseStorageManager();
-			await storageManager.createRemote('local', 'local', 'none', {}, {});
+			await storageManager.createRemote('local', 'Local Storage', 'none', {}, {});
 		} catch (error: any) {
 			console.log('[Error] creating Local Storage:', error);
 		}

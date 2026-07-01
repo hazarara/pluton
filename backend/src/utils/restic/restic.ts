@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import os from 'os';
 import path from 'path';
+import { logger } from '../logger';
 import { getRcloneConfigPath } from '../rclone/helpers';
 import { ResticRawStats, ResticSnapshot } from '../../types/restic';
 import { getBinaryPath } from '../binaryPathResolver';
@@ -89,7 +90,7 @@ export function runResticCommand(
 		}
 
 		const spawnedAt = Date.now();
-		console.log(`[TRACE] spawn restic ${args[0]} at ${spawnedAt}`);
+		logger.info({ module: 'TRACE' }, `spawn restic ${args[0]} at ${spawnedAt}`);
 		const resticProcess = spawn(resticBinary, finalArgs, { env: envVars });
 
 		if (onProcess) {
@@ -164,8 +165,9 @@ export function runResticCommand(
 
 		// Handle Process Exit
 		resticProcess.on('close', (code: number) => {
-			console.log(
-				`[TRACE] close restic ${args[0]} code=${code} at ${Date.now()} elapsedMs=${Date.now() - spawnedAt}`
+			logger.info(
+				{ module: 'TRACE' },
+				`close restic ${args[0]} code=${code} at ${Date.now()} elapsedMs=${Date.now() - spawnedAt}`
 			);
 			if (!wasCancelled) {
 				onComplete?.(code);

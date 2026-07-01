@@ -3,6 +3,7 @@ import os from 'os';
 import { existsSync, constants } from 'fs';
 import { rm, access } from 'fs/promises';
 import { EventEmitter } from 'events';
+import { logger } from '../../utils/logger';
 import { getSnapshotByTag, runHelperRestore, runResticCommand } from '../../utils/restic/restic';
 import { generateResticRepoPath, resticPathToWindows } from '../../utils/restic/helpers';
 import {
@@ -97,25 +98,25 @@ export class RestoreHandler {
 
 		try {
 			// --- 1. PRE-RESTORE PHASE ---
-			console.log(`[TRACE] preRestorePhase START ${restoreId} at ${Date.now()}`);
+			logger.info({ module: 'TRACE' }, `preRestorePhase START ${restoreId} at ${Date.now()}`);
 			const snapshot = await this.preRestorePhase(planId, backupId, restoreId, options);
-			console.log(`[TRACE] preRestorePhase END ${restoreId} at ${Date.now()}`);
+			logger.info({ module: 'TRACE' }, `preRestorePhase END ${restoreId} at ${Date.now()}`);
 			if (this.cancelledRestores.has(planId)) {
 				throw new Error('RESTORE_CANCELLED: Restore was cancelled');
 			}
 
 			// --- 2. RESTORE PHASE ---
-			console.log(`[TRACE] executeRestorePhase START ${restoreId} at ${Date.now()}`);
+			logger.info({ module: 'TRACE' }, `executeRestorePhase START ${restoreId} at ${Date.now()}`);
 			const result = await this.executeRestorePhase(planId, backupId, restoreId, snapshot, options);
-			console.log(`[TRACE] executeRestorePhase END ${restoreId} at ${Date.now()}`);
+			logger.info({ module: 'TRACE' }, `executeRestorePhase END ${restoreId} at ${Date.now()}`);
 			if (this.cancelledRestores.has(planId)) {
 				throw new Error('RESTORE_CANCELLED: Restore was cancelled');
 			}
 
 			// --- 3. POST-RESTORE PHASE ---
-			console.log(`[TRACE] postRestorePhase START ${restoreId} at ${Date.now()}`);
+			logger.info({ module: 'TRACE' }, `postRestorePhase START ${restoreId} at ${Date.now()}`);
 			await this.postRestorePhase(planId, backupId, restoreId, snapshot, options);
-			console.log(`[TRACE] postRestorePhase END ${restoreId} at ${Date.now()}`);
+			logger.info({ module: 'TRACE' }, `postRestorePhase END ${restoreId} at ${Date.now()}`);
 
 			// Mark as completed
 			await this.progressManager.markCompleted(planId, restoreId, true);
@@ -259,13 +260,13 @@ export class RestoreHandler {
 			'PRE_RESTORE_UNLOCK_STALE_LOCKS',
 			false
 		);
-		console.log(`[TRACE] unlockStaleLocks START ${restoreId} at ${Date.now()}`);
+		logger.info({ module: 'TRACE' }, `unlockStaleLocks START ${restoreId} at ${Date.now()}`);
 		await this.unlockStaleLocks(planId, {
 			storageName: options.storageName,
 			storagePath: options.storagePath,
 			encryption: options.encryption,
 		});
-		console.log(`[TRACE] unlockStaleLocks END ${restoreId} at ${Date.now()}`);
+		logger.info({ module: 'TRACE' }, `unlockStaleLocks END ${restoreId} at ${Date.now()}`);
 
 		// Run BeforeRestore Hook
 		await this.beforeRestore(planId, restoreId, options);

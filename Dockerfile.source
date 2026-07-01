@@ -65,7 +65,7 @@ COPY backend ./backend
 
 # Build backend (compile TypeScript)
 WORKDIR /workspace/backend
-RUN pnpm run build:pkg
+RUN pnpm run build
 
 # Generate database migrations
 RUN npx drizzle-kit generate

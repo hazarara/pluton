@@ -70,14 +70,18 @@ export interface BackupSourceComparisonEntry {
 	storageName: string;
 	storagePath: string;
 	found: boolean;
-	snapshotId?: string;
+	snapshotId?: string; // shown for display only — see `allMatch` note below
+	tree?: string; // the content hash actually compared across copies
 	error?: string;
 }
 
 export interface BackupSourceComparisonResult {
 	entries: BackupSourceComparisonEntry[];
-	// True only when every entry was found and all found snapshot IDs match exactly.
-	// Restic snapshot IDs are content hashes, so a match is a strong, cheap
-	// (metadata-only) guarantee the copies are identical.
+	// True only when every entry was found and all found tree hashes match
+	// exactly. We compare `tree`, not `snapshotId`: restic copy always
+	// assigns the destination a brand-new snapshot id (re-encrypted under
+	// the destination repo's key) even for a byte-perfect copy, so comparing
+	// ids would false-positive as "diverged" on every single replication.
+	// The tree hash is a pure content hash unaffected by that re-encryption.
 	allMatch: boolean;
 }

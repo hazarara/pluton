@@ -268,7 +268,14 @@ export class RestoreService {
 				try {
 					const snapshotRes = await getSnapshotByTag(tag, { storageName, storagePath, encryption });
 					if (snapshotRes.success && typeof snapshotRes.result === 'object') {
-						return { source, storageName, storagePath, found: true, snapshotId: snapshotRes.result.id };
+						return {
+							source,
+							storageName,
+							storagePath,
+							found: true,
+							snapshotId: snapshotRes.result.id,
+							tree: snapshotRes.result.tree,
+						};
 					}
 					return {
 						source,
@@ -283,8 +290,14 @@ export class RestoreService {
 			}),
 		);
 
-		const foundIds = entries.filter((e) => e.found).map((e) => e.snapshotId);
-		const allMatch = entries.every((e) => e.found) && new Set(foundIds).size === 1;
+		// Compare tree hash, not snapshot id: `restic copy` always assigns the
+		// destination a brand-new snapshot id (it re-encrypts the snapshot
+		// object under the destination repo's key) even for a byte-perfect
+		// copy. The tree hash is a pure content hash unaffected by that
+		// re-encryption, so it's the correct "do these copies actually match"
+		// signal — matching snapshot ids would false-positive on every backup.
+		const foundTrees = entries.filter((e) => e.found).map((e) => e.tree);
+		const allMatch = entries.every((e) => e.found) && new Set(foundTrees).size === 1;
 
 		return { entries, allMatch };
 	}

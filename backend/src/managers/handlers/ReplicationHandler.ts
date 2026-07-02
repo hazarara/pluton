@@ -380,16 +380,16 @@ export class ReplicationHandler {
 				);
 			}
 
-			// Step 5: Lightweight post-copy verification — compare snapshot IDs
-			// between source and destination rather than trusting the copy
-			// command's exit code alone. Metadata-only (no data re-read).
+			// Step 5: Lightweight post-copy verification — compare snapshot tree
+			// hashes between source and destination rather than trusting the
+			// copy command's exit code alone. Metadata-only (no data re-read).
 			const verifyTag = `backup-${backupId}`;
-			const [sourceSnapshotId, destSnapshotId] = await Promise.all([
-				this.getSnapshotId(sourceRepoPath, verifyTag, password, encryption),
-				this.getSnapshotId(destRepoPath, verifyTag, password, encryption),
+			const [sourceTree, destTree] = await Promise.all([
+				this.getSnapshotTree(sourceRepoPath, verifyTag, password, encryption),
+				this.getSnapshotTree(destRepoPath, verifyTag, password, encryption),
 			]);
 			mirror.lastVerifiedAt = Date.now();
-			mirror.verificationStatus = destSnapshotId && destSnapshotId === sourceSnapshotId ? 'verified' : 'failed';
+			mirror.verificationStatus = destTree && destTree === sourceTree ? 'verified' : 'failed';
 
 			// Mark mirror as completed
 			mirror.status = 'completed';
@@ -456,11 +456,20 @@ export class ReplicationHandler {
 	}
 
 	/**
-	 * Fetches the most recent snapshot ID matching a tag from a repo, or
-	 * undefined if none is found or the lookup fails. Best-effort — used for
-	 * post-copy verification, never allowed to fail the replication itself.
+	 * Fetches the most recent snapshot's tree hash matching a tag from a repo,
+	 * or undefined if none is found or the lookup fails. Best-effort — used
+	 * for post-copy verification, never allowed to fail the replication
+	 * itself.
+	 *
+	 * We compare `tree` rather than the snapshot `id`: `restic copy` always
+	 * assigns the destination a brand-new snapshot ID (it re-encrypts the
+	 * snapshot object under the destination repo's key), even for a byte-
+	 * perfect copy — restic itself stamps the copy's `original` field with
+	 * the source ID for exactly this reason. The `tree` hash is a pure
+	 * content hash unaffected by that re-encryption, so it's the correct
+	 * "do these two copies actually match" signal.
 	 */
-	private async getSnapshotId(
+	private async getSnapshotTree(
 		repoPath: string,
 		tag: string,
 		password: string,
@@ -471,7 +480,7 @@ export class ReplicationHandler {
 			if (!encryption) args.push('--insecure-no-password');
 			const output = await runResticCommand(args, { RESTIC_PASSWORD: password });
 			const snapshots = JSON.parse(output);
-			return Array.isArray(snapshots) && snapshots[0]?.id ? snapshots[0].id : undefined;
+			return Array.isArray(snapshots) && snapshots[0]?.tree ? snapshots[0].tree : undefined;
 		} catch {
 			return undefined;
 		}

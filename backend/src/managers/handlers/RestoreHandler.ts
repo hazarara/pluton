@@ -30,6 +30,9 @@ import {
 export class RestoreHandler {
 	private runningRestores = new Set<string>();
 	private cancelledRestores = new Set<string>();
+	// Tracks the repo details of each in-flight restore so cancel() can unlock
+	// the repo immediately instead of leaving it to the next attempt's preflight.
+	private runningRestoreOptions = new Map<string, RestoreOptions>();
 	private progressManager: ProgressManager;
 	private restoreStatsManager: RestoreStatsManager;
 
@@ -65,6 +68,7 @@ export class RestoreHandler {
 			throw new Error(`Restore is already in progress for plan: ${planId}`);
 		}
 		this.runningRestores.add(planId);
+		this.runningRestoreOptions.set(planId, options);
 
 		// Initialize progress file
 		try {
@@ -174,6 +178,7 @@ export class RestoreHandler {
 		} finally {
 			this.runningRestores.delete(planId);
 			this.cancelledRestores.delete(planId);
+			this.runningRestoreOptions.delete(planId);
 		}
 	}
 
@@ -680,7 +685,19 @@ export class RestoreHandler {
 
 		try {
 			const killed = processManager.killProcess('restore-' + restoreId);
-			console.log('[Cancel Restore] killed:', killed);
+			logger.info({ module: 'RestoreHandler' }, `[Cancel Restore] killed: ${killed}`);
+
+			// Proactively unlock the repo rather than leaving a stale lock behind
+			// for the next attempt's preflight to discover and wait out.
+			const cancelledOptions = this.runningRestoreOptions.get(planId);
+			if (cancelledOptions) {
+				await this.unlockStaleLocks(planId, {
+					storageName: cancelledOptions.storageName,
+					storagePath: cancelledOptions.storagePath,
+					encryption: cancelledOptions.encryption,
+				});
+			}
+
 			return true;
 		} catch (error: any) {
 			throw new Error('Error Cancelling restore. ' + error?.message || '');

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Icon from '../../common/Icon/Icon';
 import SidePanel from '../../common/SidePanel/SidePanel';
 import StoragePicker from '../../common/form/StoragePicker/StoragePicker';
@@ -14,14 +14,14 @@ import IntervalField from '../../common/form/IntervalField/IntervalField';
 import PlanFormNav from './PlanFormNav';
 import { useGetDevice } from '../../../services/devices';
 import PlanPruneSettings from '../PlanSettings/PlanPruneSettings';
-import PlanReplicationSettings from '../PlanSettings/PlanReplicationSettings';
+import PlanReplicationSettings, { PlanReplicationSettingsHandle } from '../PlanSettings/PlanReplicationSettings';
 
 type PlanFormProps = {
    title: string;
    planSettings: NewPlanSettings;
    type: 'add' | 'edit';
    onPlanSettingsChange: (settings: NewPlanSettings) => void;
-   onSubmit: () => void;
+   onSubmit: (overrideSettings?: NewPlanSettings) => void;
    isSubmitting: boolean;
    close: () => void;
    storagePath?: string;
@@ -46,6 +46,16 @@ const PlanForm = ({
    setRunSettings,
 }: PlanFormProps) => {
    const [step, setStep] = useState<number>(1);
+   const replicationSettingsRef = useRef<PlanReplicationSettingsHandle>(null);
+
+   const submitWithFlush = () => {
+      const flushedReplication = replicationSettingsRef.current?.flushPendingStorages();
+      if (!flushedReplication) {
+         onSubmit();
+         return;
+      }
+      onSubmit({ ...planSettings, settings: { ...planSettings.settings, replication: flushedReplication } });
+   };
 
    const { data: settingsData } = useGetSettings();
    const appSettings = settingsData?.result?.settings || {};
@@ -66,7 +76,7 @@ const PlanForm = ({
       3: { title: 'Next: Advanced Settings', onClick: () => isPlanSettingsValid(planSettings, step) && setStep(step + 1) },
       4: {
          title: 'Create Plan',
-         onClick: () => isPlanSettingsValid(planSettings, false) && onSubmit(),
+         onClick: () => isPlanSettingsValid(planSettings, false) && submitWithFlush(),
       },
    };
 
@@ -107,7 +117,7 @@ const PlanForm = ({
                            <Icon type="check" size={12} /> {buttonTexts[step].title}
                         </button>
                      ) : (
-                        <button className={classes.createButton} onClick={() => isPlanSettingsValid(planSettings, false) && onSubmit()}>
+                        <button className={classes.createButton} onClick={() => isPlanSettingsValid(planSettings, false) && submitWithFlush()}>
                            <Icon type="check" size={12} /> {'Update Plan'}
                         </button>
                      )}
@@ -238,6 +248,7 @@ const PlanForm = ({
                      />
                   </div>
                   <PlanReplicationSettings
+                     ref={replicationSettingsRef}
                      replication={planSettings.settings.replication}
                      primaryStorageId={planSettings.storage.id}
                      primaryStoragePath={planSettings.storagePath}

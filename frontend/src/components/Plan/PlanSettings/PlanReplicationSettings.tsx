@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { PlanReplicationSettings as ReplicationSettings, PlanReplicationStorage } from '../../../@types/plans';
 import Icon from '../../common/Icon/Icon';
 import StoragePicker from '../../common/form/StoragePicker/StoragePicker';
@@ -29,7 +29,22 @@ const defaultReplication: ReplicationSettings = {
 
 const MAX_REPLICATIONS = 2;
 
-const PlanReplicationSettings = ({
+export interface PlanReplicationSettingsHandle {
+   /**
+    * Folds any pending (unconfirmed) replication destination rows that already
+    * have a storage selected into the committed `storages` list. Called by the
+    * parent form right before submit so a user isn't required to notice and
+    * click the per-row "Confirm" button before Save/Update Plan.
+    *
+    * Returns the merged replication settings synchronously (in addition to
+    * calling `onUpdate`) so the caller can use it immediately in the same
+    * submit — `onUpdate` only schedules a state update in the parent, which
+    * would not yet be reflected if the caller read parent state right after.
+    */
+   flushPendingStorages: () => ReplicationSettings | undefined;
+}
+
+const PlanReplicationSettings = forwardRef<PlanReplicationSettingsHandle, PlanReplicationSettingsProps>(({
    replication,
    primaryStorageId,
    primaryStoragePath,
@@ -38,7 +53,7 @@ const PlanReplicationSettings = ({
    planID,
    maxReplications: maxReplicationsProp,
    onUpdate,
-}: PlanReplicationSettingsProps) => {
+}: PlanReplicationSettingsProps, ref) => {
    const [tempStorages, setTempStorages] = useState<PlanReplicationStorage[]>([]);
    const [removeStorageData, setRemoveStorageData] = useState<boolean>(false);
    const [showRemoveModal, setShowRemoveModal] = useState<boolean | PlanReplicationStorage>(false);
@@ -112,6 +127,44 @@ const PlanReplicationSettings = ({
    const removeTempStorage = (index: number) => {
       setTempStorages((prev) => prev.filter((_, i) => i !== index));
    };
+
+   useImperativeHandle(ref, () => ({
+      flushPendingStorages: () => {
+         if (tempStorages.length === 0) return undefined;
+
+         const toCommit: PlanReplicationStorage[] = [];
+         let incompleteCount = 0;
+
+         tempStorages.forEach((storage) => {
+            if (!storage.storageId) {
+               incompleteCount += 1;
+               return;
+            }
+            if (storage.storageId === primaryStorageId && storage.storagePath === primaryStoragePath) {
+               toast.error('Cannot replicate to the same storage as the primary backup. That destination was not saved.');
+               return;
+            }
+            if (isDuplicateStorage(storage.storageId, storage.storagePath)) {
+               toast.error('A duplicate replication destination was not saved.');
+               return;
+            }
+            toCommit.push(storage);
+         });
+
+         if (incompleteCount > 0) {
+            toast.warn(
+               `${incompleteCount} replication destination${incompleteCount > 1 ? 's were' : ' was'} not fully configured and was not saved.`,
+            );
+         }
+         setTempStorages([]);
+
+         if (toCommit.length === 0) return undefined;
+
+         const merged: ReplicationSettings = { ...settings, storages: [...settings.storages, ...toCommit] };
+         onUpdate(merged);
+         return merged;
+      },
+   }));
 
    const updateReplicationStorage = (index: number, storage: PlanReplicationStorage) => {
       const updated = [...settings.storages];
@@ -329,6 +382,8 @@ const PlanReplicationSettings = ({
          )}
       </div>
    );
-};
+});
+
+PlanReplicationSettings.displayName = 'PlanReplicationSettings';
 
 export default PlanReplicationSettings;

@@ -19,11 +19,9 @@ const AddPlan = ({ close }: AddPlanProps) => {
    const createPlanMutation = useCreatePlan();
    const navigate = useNavigate();
 
-   const createBackup = () => {
-      console.log('newPlan :', newPlan);
-
+   const createBackup = (overrideSettings?: NewPlanSettings) => {
       createPlanMutation.mutate(
-         { newPlan, runSettings },
+         { newPlan: overrideSettings || newPlan, runSettings },
          {
             onError: (error: any) => {
                console.log('error :', error);

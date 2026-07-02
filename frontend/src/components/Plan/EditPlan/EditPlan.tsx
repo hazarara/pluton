@@ -14,14 +14,14 @@ const EditPlan = ({ close, plan }: EditPlanProps) => {
    const backingUp = plan.backups.some((s) => s.inProgress);
    const updatePlanMutation = useUpdatePlan();
 
-   const updatePlan = () => {
+   const updatePlan = (overrideSettings?: NewPlanSettings) => {
       if (backingUp) {
          return toast.error(`Can't Update Plan Settings while a Backup is in progress.`);
       }
-      console.log('newPlan :', newPlan);
+      const planToSubmit = overrideSettings || newPlan;
 
       const allowedFields = ['title', 'description', 'isActive', 'storagePath', 'sourceConfig', 'tags', 'settings'] as const;
-      const updatedPlan = Object.fromEntries(Object.entries(newPlan).filter(([key]) => allowedFields.includes(key as any)));
+      const updatedPlan = Object.fromEntries(Object.entries(planToSubmit).filter(([key]) => allowedFields.includes(key as any)));
 
       updatePlanMutation.mutate(
          { id: plan.id, data: updatedPlan },

@@ -5,7 +5,8 @@ import { PlanStore } from '../stores/PlanStore';
 import { BackupStore } from '../stores/BackupStore';
 import { StorageStore } from '../stores/StorageStore';
 import { BaseRestoreManager } from '../managers/BaseRestoreManager';
-import { RestoreConfig, RestoreOptions } from '../types/restores';
+import { RestoreConfig, RestoreOptions, BackupSourceComparisonEntry, BackupSourceComparisonResult } from '../types/restores';
+import { getSnapshotByTag } from '../utils/restic/restic';
 
 /**
  * A class for managing restore operations.
@@ -227,5 +228,64 @@ export class RestoreService {
 		}
 
 		return storageName;
+	}
+
+	/**
+	 * Compares the snapshot for a given backup across every copy that should
+	 * hold it (the primary storage plus each configured replication mirror).
+	 * Restic snapshot IDs are content hashes of the snapshot's tree + metadata,
+	 * so identical IDs across repos are a strong, cheap (metadata-only) signal
+	 * the copies are identical — no data needs to be read to make this check.
+	 */
+	async compareBackupSources(backupId: string): Promise<BackupSourceComparisonResult> {
+		const backup = await this.backupStore.getById(backupId);
+		if (!backup) {
+			throw new NotFoundError('Backup not found');
+		}
+		const plan = await this.planStore.getById(backup.planId as string);
+		if (!plan) {
+			throw new NotFoundError('Plan not found');
+		}
+
+		const tag = `backup-${backupId}`;
+		const encryption = backup.encryption ?? true;
+
+		const sources: { source: 'primary' | string; storageName: string; storagePath: string }[] = [
+			{
+				source: 'primary',
+				storageName: await this.getStorageName(backup.storageId as string),
+				storagePath: (backup.storagePath as string) || '',
+			},
+			...(plan.settings?.replication?.storages || []).map((mirror) => ({
+				source: mirror.replicationId,
+				storageName: mirror.storageName,
+				storagePath: mirror.storagePath,
+			})),
+		];
+
+		const entries: BackupSourceComparisonEntry[] = await Promise.all(
+			sources.map(async ({ source, storageName, storagePath }) => {
+				try {
+					const snapshotRes = await getSnapshotByTag(tag, { storageName, storagePath, encryption });
+					if (snapshotRes.success && typeof snapshotRes.result === 'object') {
+						return { source, storageName, storagePath, found: true, snapshotId: snapshotRes.result.id };
+					}
+					return {
+						source,
+						storageName,
+						storagePath,
+						found: false,
+						error: typeof snapshotRes.result === 'string' ? snapshotRes.result : 'Snapshot not found',
+					};
+				} catch (error: any) {
+					return { source, storageName, storagePath, found: false, error: error?.message || 'Unknown error' };
+				}
+			}),
+		);
+
+		const foundIds = entries.filter((e) => e.found).map((e) => e.snapshotId);
+		const allMatch = entries.every((e) => e.found) && new Set(foundIds).size === 1;
+
+		return { entries, allMatch };
 	}
 }

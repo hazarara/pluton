@@ -164,6 +164,25 @@ export class RestoreController {
 		}
 	}
 
+	async compareBackupSources(req: Request, res: Response): Promise<void> {
+		if (!req.params.backupId) {
+			res.status(400).json({
+				success: false,
+				error: 'Backup ID is required',
+			});
+			return;
+		}
+		try {
+			const result = await this.restoreService.compareBackupSources(req.params.backupId);
+			res.status(200).json({ success: true, result });
+		} catch (error: any) {
+			res.status(500).json({
+				success: false,
+				error: 'Failed to compare backup sources. ' + (error.message || ''),
+			});
+		}
+	}
+
 	async cancelRestore(req: Request, res: Response): Promise<void> {
 		if (!req.params.id) {
 			res.status(400).json({

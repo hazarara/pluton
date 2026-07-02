@@ -156,6 +156,8 @@ export interface ReplicationCompleteEvent {
 	storageType: string;
 	success: boolean;
 	error?: string;
+	lastVerifiedAt?: number;
+	verificationStatus?: 'verified' | 'failed';
 }
 
 export interface ReplicationProgressEvent {

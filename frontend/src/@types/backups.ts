@@ -45,6 +45,8 @@ export interface BackupMirror {
    ended?: number;
    error?: string;
    size?: number;
+   lastVerifiedAt?: number;
+   verificationStatus?: 'verified' | 'failed';
 }
 
 export type Backup = {

@@ -275,3 +275,31 @@ export function useGetRestoreProgressOnce(payload: { id: string; sourceId: strin
       retry: false,
    });
 }
+
+// Compare a backup's snapshot across its primary storage and every replication mirror
+export async function compareBackupSources(backupId: string) {
+   if (!backupId) {
+      throw new Error('Backup ID Not Provided.');
+   }
+
+   const res = await fetch(`${API_URL}/restores/backup/${backupId}/compare-sources`, {
+      method: 'GET',
+      credentials: 'include',
+   });
+   const data = await res.json();
+   if (!data.success) {
+      throw new Error(data.error);
+   }
+   return data;
+}
+
+export function useCompareBackupSources(backupId: string) {
+   return useQuery({
+      queryKey: ['compare-backup-sources', backupId],
+      queryFn: () => compareBackupSources(backupId),
+      enabled: !!backupId,
+      refetchOnMount: true,
+      retry: false,
+      staleTime: 0,
+   });
+}

@@ -60,3 +60,24 @@ export interface RestoreStatsFile {
 	restoredPaths: ResticRestoredFile[];
 	stats: RestoreStats;
 }
+
+/**
+ * One available copy of a backup (the primary storage, or one of its
+ * replication mirrors) and whether its snapshot for this backup was found.
+ */
+export interface BackupSourceComparisonEntry {
+	source: 'primary' | string; // 'primary', or a replicationId
+	storageName: string;
+	storagePath: string;
+	found: boolean;
+	snapshotId?: string;
+	error?: string;
+}
+
+export interface BackupSourceComparisonResult {
+	entries: BackupSourceComparisonEntry[];
+	// True only when every entry was found and all found snapshot IDs match exactly.
+	// Restic snapshot IDs are content hashes, so a match is a strong, cheap
+	// (metadata-only) guarantee the copies are identical.
+	allMatch: boolean;
+}

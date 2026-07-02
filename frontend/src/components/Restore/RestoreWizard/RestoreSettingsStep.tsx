@@ -7,6 +7,7 @@ import FolderPicker from '../../common/FolderPicker/FolderPicker';
 import { RestoreSettings } from '../../../@types/restores';
 import Toggle from '../../common/form/Toggle/Toggle';
 import { Backup } from '../../..';
+import { useCompareBackupSources } from '../../../services/restores';
 
 interface RestoreSettingsStepProps {
    backupId: string;
@@ -19,9 +20,15 @@ interface RestoreSettingsStepProps {
    close: () => void;
 }
 
-const RestoreSettingsStep = ({ settings, mirrors = [], primaryStorage, updateSettings, goNext, close, deviceId }: RestoreSettingsStepProps) => {
+const RestoreSettingsStep = ({ backupId, settings, mirrors = [], primaryStorage, updateSettings, goNext, close, deviceId }: RestoreSettingsStepProps) => {
    const [showFileManager, setShowFileManager] = useState(false);
    const [showCustomPathError, setShowCustomPathError] = useState(false);
+
+   const { data: compareData, isLoading: compareLoading } = useCompareBackupSources(mirrors.length > 0 ? backupId : '');
+   const comparison = compareData?.result as
+      | { entries: { source: string; storageName: string; storagePath: string; found: boolean; snapshotId?: string }[]; allMatch: boolean }
+      | undefined;
+   const primaryComparisonPath = comparison?.entries.find((e) => e.source === 'primary')?.storagePath;
 
    const gotoPreviewStep = () => {
       if ((settings.type === 'custom' && settings.path) || settings.type === 'original') {
@@ -41,12 +48,12 @@ const RestoreSettingsStep = ({ settings, mirrors = [], primaryStorage, updateSet
                      label="Select Storage to Restore From"
                      options={[
                         {
-                           label: primaryStorage!.name + ' (Primary)',
+                           label: `${primaryStorage!.name}${primaryComparisonPath ? ` — ${primaryComparisonPath}` : ''} (Primary)`,
                            value: 'primary',
                            image: <img src={`/providers/${primaryStorage.type}.png`} />,
                         },
                         ...mirrors.map((m) => ({
-                           label: m.storageName + ' (Mirror)',
+                           label: `${m.storageName} — ${m.storagePath} (Mirror)`,
                            value: m.replicationId,
                            image: <img src={`/providers/${m.storageType}.png`} />,
                         })),
@@ -55,6 +62,32 @@ const RestoreSettingsStep = ({ settings, mirrors = [], primaryStorage, updateSet
                      full={true}
                      onUpdate={(value) => updateSettings({ ...settings, replicationId: value === 'primary' ? undefined : value })}
                   />
+
+                  <div className={classes.sourceComparison}>
+                     {compareLoading && (
+                        <div className={classes.sourceComparisonLoading}>
+                           <Icon type="loading" size={14} /> Checking whether copies agree...
+                        </div>
+                     )}
+                     {!compareLoading && comparison && comparison.allMatch && (
+                        <div className={classes.sourceComparisonMatch}>
+                           <Icon type="check-circle-filled" size={14} /> All {comparison.entries.length} copies agree — same snapshot everywhere.
+                        </div>
+                     )}
+                     {!compareLoading && comparison && !comparison.allMatch && (
+                        <div className={classes.sourceComparisonDiverged}>
+                           <Icon type="log-warn" size={14} /> Divergence detected — these copies do not all match:
+                           <ul>
+                              {comparison.entries.map((e) => (
+                                 <li key={e.source}>
+                                    {e.source === 'primary' ? 'Primary' : `Mirror (${e.storageName})`} — {e.storagePath}:{' '}
+                                    {e.found ? `snapshot ${e.snapshotId?.slice(0, 12)}` : 'snapshot not found'}
+                                 </li>
+                              ))}
+                           </ul>
+                        </div>
+                     )}
+                  </div>
                </div>
             )}
 

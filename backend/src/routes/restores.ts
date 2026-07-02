@@ -14,6 +14,7 @@ export function createRestoreRouter(
 	router.post('/:id/action/cancel', authM, controller.cancelRestore.bind(controller));
 	router.post('/action/dryrestore', authM, controller.performDryRestore.bind(controller));
 	router.post('/action/restore', authM, controller.performRestore.bind(controller));
+	router.get('/backup/:backupId/compare-sources', authM, controller.compareBackupSources.bind(controller));
 
 	return router;
 }

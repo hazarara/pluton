@@ -380,6 +380,17 @@ export class ReplicationHandler {
 				);
 			}
 
+			// Step 5: Lightweight post-copy verification — compare snapshot IDs
+			// between source and destination rather than trusting the copy
+			// command's exit code alone. Metadata-only (no data re-read).
+			const verifyTag = `backup-${backupId}`;
+			const [sourceSnapshotId, destSnapshotId] = await Promise.all([
+				this.getSnapshotId(sourceRepoPath, verifyTag, password, encryption),
+				this.getSnapshotId(destRepoPath, verifyTag, password, encryption),
+			]);
+			mirror.lastVerifiedAt = Date.now();
+			mirror.verificationStatus = destSnapshotId && destSnapshotId === sourceSnapshotId ? 'verified' : 'failed';
+
 			// Mark mirror as completed
 			mirror.status = 'completed';
 			mirror.ended = Date.now();
@@ -401,6 +412,8 @@ export class ReplicationHandler {
 				storagePath,
 				storageType,
 				success: true,
+				lastVerifiedAt: mirror.lastVerifiedAt,
+				verificationStatus: mirror.verificationStatus,
 			});
 
 			return mirror;
@@ -439,6 +452,28 @@ export class ReplicationHandler {
 			if (this.activeMirrors.get(backupId)?.size === 0) {
 				this.activeMirrors.delete(backupId);
 			}
+		}
+	}
+
+	/**
+	 * Fetches the most recent snapshot ID matching a tag from a repo, or
+	 * undefined if none is found or the lookup fails. Best-effort — used for
+	 * post-copy verification, never allowed to fail the replication itself.
+	 */
+	private async getSnapshotId(
+		repoPath: string,
+		tag: string,
+		password: string,
+		encryption: boolean
+	): Promise<string | undefined> {
+		try {
+			const args = ['-r', repoPath, 'snapshots', '--tag', tag, '--json'];
+			if (!encryption) args.push('--insecure-no-password');
+			const output = await runResticCommand(args, { RESTIC_PASSWORD: password });
+			const snapshots = JSON.parse(output);
+			return Array.isArray(snapshots) && snapshots[0]?.id ? snapshots[0].id : undefined;
+		} catch {
+			return undefined;
 		}
 	}
 

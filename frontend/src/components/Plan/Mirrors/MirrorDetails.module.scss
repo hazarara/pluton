@@ -72,5 +72,45 @@
          box-sizing: border-box;
          margin-top: 12px;
       }
+
+      .mirrorVerification {
+         width: 100%;
+         display: flex;
+         align-items: center;
+         justify-content: space-between;
+         font-size: 0.75rem;
+         color: var(--secondary-text-color);
+         margin-top: 8px;
+
+         .verificationOk {
+            color: var(--success-color, #2e7d32);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+         }
+
+         .verificationFailed {
+            color: var(--error-button-color);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+         }
+
+         .verifyNowBtn {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: none;
+            border: none;
+            color: var(--primary-color);
+            cursor: pointer;
+            font-size: inherit;
+
+            &:disabled {
+               opacity: 0.6;
+               cursor: default;
+            }
+         }
+      }
    }
 }

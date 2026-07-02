@@ -150,6 +150,38 @@
                border-color: var(--error-button-color);
             }
          }
+
+         .sourceComparison {
+            margin-top: 10px;
+            font-size: 0.8rem;
+
+            .sourceComparisonLoading {
+               color: var(--secondary-text-color);
+               display: flex;
+               align-items: center;
+               gap: 6px;
+            }
+
+            .sourceComparisonMatch {
+               color: var(--success-color, #2e7d32);
+               display: flex;
+               align-items: center;
+               gap: 6px;
+            }
+
+            .sourceComparisonDiverged {
+               color: var(--error-button-color);
+               display: flex;
+               flex-direction: column;
+               gap: 4px;
+
+               ul {
+                  margin: 4px 0 0 22px;
+                  padding: 0;
+                  font-weight: 400;
+               }
+            }
+         }
       }
       .restoreSuccessMsg {
          button {

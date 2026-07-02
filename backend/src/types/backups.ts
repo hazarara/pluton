@@ -94,6 +94,11 @@ export interface BackupMirror {
 	ended?: number;
 	error?: string;
 	size?: number;
+	// Lightweight post-copy check: does this mirror's snapshot ID match the
+	// source's for this backup? Restic snapshot IDs are content hashes, so a
+	// match is a strong, cheap (metadata-only) guarantee the copies agree.
+	lastVerifiedAt?: number;
+	verificationStatus?: 'verified' | 'failed';
 }
 
 export type BackupRunConfig = {

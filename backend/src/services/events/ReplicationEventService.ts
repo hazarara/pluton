@@ -245,6 +245,8 @@ export class ReplicationEventService {
 				status: data.success ? 'completed' : 'failed',
 				ended: Date.now(),
 				error: data.error,
+				lastVerifiedAt: data.lastVerifiedAt,
+				verificationStatus: data.verificationStatus,
 			});
 
 			if (data.success) {

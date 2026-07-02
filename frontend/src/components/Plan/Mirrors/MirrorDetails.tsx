@@ -1,10 +1,21 @@
 import { toast } from 'react-toastify';
 import { Backup, PlanReplicationSettings } from '../../../@types';
 import { useRetryFailedReplications } from '../../../services';
+import { useCompareBackupSources } from '../../../services/restores';
 import { formatBytes, formatDuration } from '../../../utils';
 import Icon from '../../common/Icon/Icon';
 import Modal from '../../common/Modal/Modal';
 import classes from './MirrorDetails.module.scss';
+
+const formatAge = (timestampMs: number): string => {
+   const seconds = Math.floor((Date.now() - timestampMs) / 1000);
+   if (seconds < 60) return `${seconds}s ago`;
+   const minutes = Math.floor(seconds / 60);
+   if (minutes < 60) return `${minutes}m ago`;
+   const hours = Math.floor(minutes / 60);
+   if (hours < 24) return `${hours}h ago`;
+   return `${Math.floor(hours / 24)}d ago`;
+};
 
 interface MirrorDetailsProps {
    mirrors: Backup['mirrors'];
@@ -17,6 +28,14 @@ interface MirrorDetailsProps {
 
 const MirrorDetails = ({ mirrors = [], backupId, backupTitle, planId, close }: MirrorDetailsProps) => {
    const retryReplicationsMutation = useRetryFailedReplications();
+   const {
+      data: compareData,
+      isFetching: isVerifying,
+      refetch: verifyNow,
+   } = useCompareBackupSources(backupId);
+   const comparisonEntries = compareData?.result?.entries as
+      | { source: string; found: boolean; snapshotId?: string }[]
+      | undefined;
 
    const retryReplication = (backupId: string, replicationId: string) => {
       toast.promise(retryReplicationsMutation.mutateAsync({ backupId, planId, replicationId }), {
@@ -85,6 +104,35 @@ const MirrorDetails = ({ mirrors = [], backupId, backupTitle, planId, close }: M
                               </div>
                            </div>
                            {mirror.error && <div className={classes.mirrorItemError}>{mirror.error}</div>}
+                           {mirror.status === 'completed' &&
+                              (() => {
+                                 const liveEntry = comparisonEntries?.find((e) => e.source === mirror.replicationId);
+                                 const isDiverged = liveEntry
+                                    ? !liveEntry.found
+                                    : mirror.verificationStatus === 'failed';
+                                 return (
+                                    <div className={classes.mirrorVerification}>
+                                       {isVerifying ? (
+                                          <span>
+                                             <Icon type="loading" size={12} /> Checking...
+                                          </span>
+                                       ) : isDiverged ? (
+                                          <span className={classes.verificationFailed}>
+                                             <Icon type="log-warn" size={12} /> Divergence detected — this copy may not match the primary.
+                                          </span>
+                                       ) : mirror.lastVerifiedAt ? (
+                                          <span className={classes.verificationOk}>
+                                             <Icon type="check-circle-filled" size={12} /> Verified {formatAge(mirror.lastVerifiedAt)}
+                                          </span>
+                                       ) : (
+                                          <span>Not yet verified</span>
+                                       )}
+                                       <button className={classes.verifyNowBtn} onClick={() => verifyNow()} disabled={isVerifying}>
+                                          <Icon type="reload" size={12} /> Verify Now
+                                       </button>
+                                    </div>
+                                 );
+                              })()}
                         </div>
                      );
                   })

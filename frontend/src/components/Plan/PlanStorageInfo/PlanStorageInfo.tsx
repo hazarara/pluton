@@ -1,4 +1,4 @@
-import { PlanReplicationSettings } from '../../../@types';
+import { Backup, PlanReplicationSettings } from '../../../@types';
 import classes from './PlanStorageInfo.module.scss';
 
 interface PlanStorageInfoProps {
@@ -7,10 +7,57 @@ interface PlanStorageInfoProps {
    replicationSettings?: PlanReplicationSettings;
    disableTooltip?: boolean;
    inline?: boolean;
+   /** Most recent backup for this plan — used to show each destination's last-known health. */
+   latestBackup?: Backup;
 }
 
-const PlanStorageInfo = ({ replicationSettings, storage, storagePath, disableTooltip = true, inline = true }: PlanStorageInfoProps) => {
-   console.log('replicationSettings :', replicationSettings);
+const formatStatusAge = (timestampMs: number): string => {
+   const seconds = Math.floor((Date.now() - timestampMs) / 1000);
+   if (seconds < 60) return `${seconds}s ago`;
+   const minutes = Math.floor(seconds / 60);
+   if (minutes < 60) return `${minutes}m ago`;
+   const hours = Math.floor(minutes / 60);
+   if (hours < 24) return `${hours}h ago`;
+   return `${Math.floor(hours / 24)}d ago`;
+};
+
+const OK_COLOR = '#2e7d32';
+const FAIL_COLOR = '#c62828';
+const UNKNOWN_COLOR = 'var(--secondary-text-color, #888)';
+
+/** Renders a small colored status line for the tooltip's HTML string. */
+const statusLine = (statusText: string, color: string): string =>
+   `<div style="color: ${color}; font-size: 0.85em; margin-top: 2px;">${statusText}</div>`;
+
+const primaryStatusLine = (latestBackup?: Backup): string => {
+   if (!latestBackup) return statusLine('Not yet backed up', UNKNOWN_COLOR);
+   if (latestBackup.status === 'completed') return statusLine('✓ Last backup succeeded', OK_COLOR);
+   if (latestBackup.status === 'started' || latestBackup.status === 'retrying' || latestBackup.status === 'initializing') {
+      return statusLine('Backup in progress', UNKNOWN_COLOR);
+   }
+   return statusLine(`⚠ Last backup ${latestBackup.status}`, FAIL_COLOR);
+};
+
+const mirrorStatusLine = (replicationId: string, latestBackup?: Backup): string => {
+   const mirror = latestBackup?.mirrors?.find((m) => m.replicationId === replicationId);
+   if (!mirror) return statusLine('Not yet replicated', UNKNOWN_COLOR);
+   if (mirror.status === 'failed') return statusLine(`⚠ Replication failed`, FAIL_COLOR);
+   if (mirror.status !== 'completed') return statusLine('Replicating...', UNKNOWN_COLOR);
+   if (mirror.verificationStatus === 'failed') return statusLine('⚠ Divergence detected', FAIL_COLOR);
+   if (mirror.verificationStatus === 'verified' && mirror.lastVerifiedAt) {
+      return statusLine(`✓ Verified ${formatStatusAge(mirror.lastVerifiedAt)}`, OK_COLOR);
+   }
+   return statusLine('Not yet verified', UNKNOWN_COLOR);
+};
+
+const PlanStorageInfo = ({
+   replicationSettings,
+   storage,
+   storagePath,
+   disableTooltip = true,
+   inline = true,
+   latestBackup,
+}: PlanStorageInfoProps) => {
    return (
       <>
          {replicationSettings && replicationSettings.enabled && replicationSettings.storages.length > 0 ? (
@@ -27,6 +74,7 @@ const PlanStorageInfo = ({ replicationSettings, storage, storagePath, disableToo
                                  <div>
                                     <strong style="display: block;">${storage?.name}</strong>
                                     ${storagePath || '/'}
+                                    ${primaryStatusLine(latestBackup)}
                                  </div>
                               </div>
                            </div>
@@ -39,6 +87,7 @@ const PlanStorageInfo = ({ replicationSettings, storage, storagePath, disableToo
                                  <div>
                                     <strong style="display: block;">${s?.storageName} (Mirror)</strong>
                                     ${s?.storagePath || '/'}
+                                    ${mirrorStatusLine(s.replicationId, latestBackup)}
                                  </div>
                               </div>
                                     `,
@@ -68,6 +117,7 @@ const PlanStorageInfo = ({ replicationSettings, storage, storagePath, disableToo
                               <div>
                                  <strong style="display: block;">${storage?.name}</strong>
                                  ${storagePath || '/'}
+                                 ${primaryStatusLine(latestBackup)}
                               </div>
                            </div>
                         `}

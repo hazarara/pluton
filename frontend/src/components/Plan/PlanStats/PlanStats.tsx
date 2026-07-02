@@ -58,6 +58,7 @@ const PlanStats = ({ plan, isSync, lastBackupItem }: PlanStatsProps) => {
                   replicationSettings={plan.settings.replication}
                   storage={storage}
                   storagePath={storagePath}
+                  latestBackup={lastBackupItem}
                />
             </div>
          </div>

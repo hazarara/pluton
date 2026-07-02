@@ -33,6 +33,8 @@ const PlanItem = ({ plan, layout = 'list' }: PlanItemProps) => {
       method = 'backup',
    } = plan;
 
+   const latestBackup = backups.length > 0 ? backups.reduce((a, b) => (b.started > a.started ? b : a)) : undefined;
+
    const { interval = { type: 'daily', time: '10:00AM' }, encryption = false, compression = false } = settings;
    const [showSettings, setShowSettings] = useState(false);
 
@@ -158,7 +160,12 @@ const PlanItem = ({ plan, layout = 'list' }: PlanItemProps) => {
                         <span className={classes.sourceCount}>{sourceConfig.includes.length}</span>
                      </span>{' '}
                      {'-->'}
-                     <PlanStorageInfo replicationSettings={plan.settings.replication} storage={storage} storagePath={plan.storagePath} />
+                     <PlanStorageInfo
+                        replicationSettings={plan.settings.replication}
+                        storage={storage}
+                        storagePath={plan.storagePath}
+                        latestBackup={latestBackup}
+                     />
                   </div>
                </NavLink>
             </div>

@@ -136,6 +136,8 @@ export type PlanScripts = {
 	onBackupError?: PlanScript[];
 	onBackupFailure?: PlanScript[];
 	onBackupComplete?: PlanScript[];
+	onRestoreStart?: PlanScript[];
+	onRestoreEnd?: PlanScript[];
 };
 
 export interface PlanRescueSettings {

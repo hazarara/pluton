@@ -154,6 +154,8 @@ export type PlanSettings = {
       onBackupError?: PlanScript[];
       onBackupFailure?: PlanScript[];
       onBackupComplete?: PlanScript[];
+      onRestoreStart?: PlanScript[];
+      onRestoreEnd?: PlanScript[];
    };
    replication?: PlanReplicationSettings;
 };

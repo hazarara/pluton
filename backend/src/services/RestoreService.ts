@@ -172,6 +172,7 @@ export class RestoreService {
 				delete: restoreConfig.delete || false,
 				sources: plan.sourceConfig.includes || [],
 				performanceSettings,
+				scripts: plan.settings.scripts,
 			});
 
 			if (!restoreResult.success) {

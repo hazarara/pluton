@@ -1,5 +1,6 @@
 import { ResticRestoredFile, SnapShotFile } from '../types/restic';
 import { Restore } from '../db/schema/restores';
+import { PlanScripts } from '../types/plans';
 
 export interface RestoreResItem {
 	id: Restore['id'];
@@ -48,6 +49,7 @@ export interface RestoreOptions extends RestoreConfig {
 	encryption: boolean;
 	sources?: string[];
 	performanceSettings?: Record<string, any>;
+	scripts?: PlanScripts;
 }
 
 export interface RestoreStatsFile {

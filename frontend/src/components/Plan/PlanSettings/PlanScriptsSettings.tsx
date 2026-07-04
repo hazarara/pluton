@@ -12,7 +12,14 @@ interface PlanScriptsSettingsProps {
    platform?: string;
 }
 
-type ScriptEventKey = 'onBackupStart' | 'onBackupEnd' | 'onBackupError' | 'onBackupFailure' | 'onBackupComplete';
+type ScriptEventKey =
+   | 'onBackupStart'
+   | 'onBackupEnd'
+   | 'onBackupError'
+   | 'onBackupFailure'
+   | 'onBackupComplete'
+   | 'onRestoreStart'
+   | 'onRestoreEnd';
 
 const scriptEvents: Record<ScriptEventKey, { title: string; description: string }> = {
    onBackupStart: {
@@ -35,6 +42,14 @@ const scriptEvents: Record<ScriptEventKey, { title: string; description: string 
       title: 'On Backup Complete',
       description: 'Scripts that run when the backup completes.',
    },
+   onRestoreStart: {
+      title: 'Before Restore Start',
+      description: 'Scripts that run before a restore starts, for this plan (any destination).',
+   },
+   onRestoreEnd: {
+      title: 'After Restore End',
+      description: 'Scripts that run after a restore ends, for this plan (any destination).',
+   },
 };
 
 const PlanScriptsSettings = ({
@@ -44,6 +59,8 @@ const PlanScriptsSettings = ({
       onBackupError: [],
       onBackupFailure: [],
       onBackupComplete: [],
+      onRestoreStart: [],
+      onRestoreEnd: [],
    },
    platform = '',
    onUpdate,
@@ -55,6 +72,8 @@ const PlanScriptsSettings = ({
       onBackupError: false,
       onBackupFailure: false,
       onBackupComplete: false,
+      onRestoreStart: false,
+      onRestoreEnd: false,
    });
 
    const showRootOption = platform.toLowerCase().includes('linux');

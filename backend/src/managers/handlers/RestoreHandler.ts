@@ -26,6 +26,7 @@ import {
 	isPermissionDeniedError,
 	runHelper,
 } from '../../utils/linuxHelper';
+import { runScriptsForEvent } from '../../utils/executeUserScript';
 
 export class RestoreHandler {
 	private runningRestores = new Set<string>();
@@ -193,6 +194,10 @@ export class RestoreHandler {
 	): Promise<ResticSnapshot> {
 		await this.updateProgress(planId, restoreId, 'pre-restore', 'PRE_RESTORE_START', false);
 
+		// Run BeforeRestore Hook first — must happen before any restic
+		// operation touches the (possibly remote/tunnel-gated) repo below.
+		await this.beforeRestore(planId, restoreId, options);
+
 		// Get snapshot details
 		await this.updateProgress(planId, restoreId, 'pre-restore', 'PRE_RESTORE_GET_SNAPSHOT', false);
 		const snapshotTagRes = await getSnapshotByTag('backup-' + backupId, options);
@@ -272,9 +277,6 @@ export class RestoreHandler {
 			encryption: options.encryption,
 		});
 		logger.info({ module: 'TRACE' }, `unlockStaleLocks END ${restoreId} at ${Date.now()}`);
-
-		// Run BeforeRestore Hook
-		await this.beforeRestore(planId, restoreId, options);
 
 		await this.updateProgress(planId, restoreId, 'pre-restore', 'PRE_RESTORE_COMPLETE', true);
 
@@ -752,10 +754,45 @@ export class RestoreHandler {
 		}
 	}
 
-	// Placeholder methods for future script hooks
-	protected async beforeRestore(planId: string, restoreId: string, options: RestoreOptions) {}
-	protected async afterRestore(planId: string, restoreId: string, options: RestoreOptions) {}
+	/**
+	 * Run user commands before a restore starts.
+	 */
+	protected async beforeRestore(planId: string, restoreId: string, options: RestoreOptions) {
+		await this.runScripts('onRestoreStart', planId, restoreId, options);
+	}
+
+	/**
+	 * Run user commands after a restore ends. Runs on both success and error.
+	 */
+	protected async afterRestore(planId: string, restoreId: string, options: RestoreOptions) {
+		await this.runScripts('onRestoreEnd', planId, restoreId, options);
+	}
+
 	protected async afterRestoreSuccess(planId: string, restoreId: string, options: RestoreOptions) {}
 	protected async afterRestoreError(planId: string, restoreId: string, options: RestoreOptions) {}
 	protected async afterRestoreFailure(planId: string, restoreId: string, options: RestoreOptions) {}
+
+	protected async runScripts(
+		eventName: 'onRestoreStart' | 'onRestoreEnd',
+		planId: string,
+		restoreId: string,
+		options: RestoreOptions
+	) {
+		const phase = eventName === 'onRestoreStart' ? 'pre-restore' : 'post-restore';
+		const scripts = options?.scripts?.[eventName] || [];
+
+		await runScriptsForEvent(
+			eventName,
+			scripts,
+			async scriptName => {
+				await this.updateProgress(planId, restoreId, phase, scriptName + '_START', false);
+			},
+			async scriptName => {
+				await this.updateProgress(planId, restoreId, phase, scriptName + '_COMPLETE', true);
+			},
+			async (scriptName, message) => {
+				await this.updateProgress(planId, restoreId, phase, scriptName + '_FAIL', true, message);
+			}
+		);
+	}
 }

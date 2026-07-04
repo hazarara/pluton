@@ -153,7 +153,18 @@ function determineScriptExecution(scriptPath: string): { executable: string; arg
 		case '.pl':
 			return { executable: 'perl', args: [scriptPath] };
 		case '.sh':
+			// POSIX shell, not bash: production images (this one included) are
+			// commonly Alpine-based and don't ship /bin/bash by default, so a
+			// hardcoded bash here means every .sh hook script fails outright
+			// with ENOENT. /bin/sh is always present and sufficient for
+			// portable hook scripts.
+			if (os.platform() === 'win32') {
+				return { executable: 'sh', args: [scriptPath] };
+			}
+			return { executable: '/bin/sh', args: [scriptPath] };
 		case '.bash':
+			// Explicit .bash extension signals the script actually needs bash
+			// (vs. portable POSIX sh) — still requires bash to be installed.
 			if (os.platform() === 'win32') {
 				return { executable: 'bash', args: [scriptPath] };
 			}

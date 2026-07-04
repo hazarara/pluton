@@ -276,7 +276,10 @@ export class PlanController {
 			}
 
 			const { storageID, storagePath, removeData, replicationId } = req.body;
-			if (!storageID || !storagePath) {
+			// storagePath can legitimately be an empty string (a repo at the
+			// storage's root) — only reject when it's actually missing, not
+			// falsy, or a valid "root" destination can never be removed.
+			if (!storageID || typeof storagePath !== 'string') {
 				res.status(400).json({
 					success: false,
 					error: 'storageID and storagePath are required',

@@ -93,8 +93,8 @@ RUN apk del python3 make g++
 # Stage 5: Production Image
 FROM node:24-alpine AS production
 
-# Install wget for healthcheck
-RUN apk add --no-cache wget
+# Install wget for healthcheck, tailscale for on-demand off-site replication tunnels
+RUN apk add --no-cache wget tailscale
 
 WORKDIR /app
 
